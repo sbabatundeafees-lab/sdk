@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Standard Payment SDK — Test (STAGE)</title>
+    <style>
+        body { font-family: system-ui, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; background: #f5f6f8; }
+        .card { background: #fff; padding: 32px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.08); width: 320px; }
+        h1 { font-size: 18px; margin: 0 0 20px; }
+        .env { display: inline-block; background: #1976d2; color: #fff; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
+        label { display: block; font-size: 13px; margin: 12px 0 4px; color: #555; }
+        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+        button { width: 100%; margin-top: 20px; padding: 12px; border: 0; border-radius: 4px; background: #f60; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+        #status { margin-top: 14px; font-size: 13px; color: #555; min-height: 18px; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>Standard <span class="env">STAGE</span></h1>
+
+    <label for="email">Email</label>
+    <input id="email" type="email" value="customer@example.com" />
+
+    <label for="amount">Amount (NGN)</label>
+    <input id="amount" type="number" value="1000" />
+
+    <button id="pay">Pay now</button>
+    <p id="status"></p>
+</div>
+
+<!-- Standalone standard SDK. Exposes window.EgolePay.
+     sk_test_* keys hit the stage gateway; sk_live_* keys hit production. -->
+<script src="standardpaymentsdk.js"></script>
+
+<script>
+    const API_KEY = "sk_test_EGP_3744CA97E16A46B8B4FE71DD903F80AB";
+    const status = document.getElementById("status");
+
+    // Merchant-generated, unique per payment attempt.
+    const newTxnRef = () =>
+        "TXN_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8).toUpperCase();
+
+    document.getElementById("pay").addEventListener("click", () => {
+        const ref = newTxnRef();
+        status.textContent = "Starting payment… " + ref;
+
+        window.checkout = new EgolePay({
+            apiKey: API_KEY,
+            amount: Number(document.getElementById("amount").value),
+            currency: "NGN",
+            email: document.getElementById("email").value,
+            phone: "08012345678",
+            mobile: "08012345678",
+            customerName: "Test Customer",
+            txnRef: ref,
+            reference: ref,
+            merchantName: "My Store",
+            description: "Order payment",
+            saveCard: false,
+
+            onSuccess: (res) => { status.textContent = "Success: " + (res.paymentReference || ""); console.log("success", res); },
+            onPending: ()    => { status.textContent = "Pending confirmation."; },
+            onError:   (err) => { status.textContent = "Error: " + (err.message || err); console.error("error", err); },
+            onCancel:  ()    => { status.textContent = "Payment cancelled."; },
+            onClose:   (res) => { console.log("closed:", res); },
+        });
+    });
+</script>
+</body>
+</html>

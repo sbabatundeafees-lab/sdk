@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inter Gateway SDK — Test</title>
+
+    <!-- Optional: Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 0; background: #fff; }
+        input:focus, button:focus {
+            outline: 2px solid #FF8F0B;
+            outline-offset: 2px;
+        }
+        .test-card-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #FF8F0B;
+            border-radius: 4px;
+        }
+    </style>
+
+    <!-- InterPaymentGateway SDK (webbridge.js). Exposes window.EgolePay.
+         sk_test_* keys -> paywebbackoffice-test.egolepay.com/api/InterPaymentGateway
+         anything else -> payments.egolepay.com/api/StandardPaymentGateway -->
+    <script src="webbridge.js"></script>
+</head>
+<body>
+
+<!-- Payment Form -->
+<div style="max-width: 500px; margin: 50px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+    <h2 style="text-align: center; color: #333;">Test Payment</h2>
+
+    <div style="margin-bottom: 15px;">
+        <label for="refNumber" style="display: block; margin-bottom: 5px; font-weight: bold;">Reference Number:</label>
+        <input type="text" id="refNumber" placeholder="Enter your reference"
+               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label for="amount" style="display: block; margin-bottom: 5px; font-weight: bold;">Amount (NGN):</label>
+        <input type="number" id="amount" value="2500.00" step="0.01" min="100"
+               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label for="email" style="display: block; margin-bottom: 5px; font-weight: bold;">Email:</label>
+        <input type="email" id="email" value="testuser@egolepay.com"
+               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
+        <label for="tnxBearer" style="display: block; margin-bottom: 5px; font-weight: bold;">Token (tnxBearer JWT) — paste here:</label>
+        <textarea id="tnxBearer" rows="4" placeholder="eyJhbGciOi..."
+               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 12px;"></textarea>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Environment:</label>
+        <div style="display: flex; gap: 20px;">
+            <label>
+                <input type="radio" name="environment" value="test" checked> Test (Sandbox)
+            </label>
+            <label>
+                <input type="radio" name="environment" value="live"> Live (Production)
+            </label>
+        </div>
+    </div>
+
+    <button onclick="initiatePayment()" style="
+        width: 100%;
+        padding: 15px;
+        background-color: #FF8F0B;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    " onmouseover="this.style.backgroundColor='#e07d00'"
+       onmouseout="this.style.backgroundColor='#FF8F0B'">
+        <i class="fas fa-credit-card"></i> Pay Now
+    </button>
+
+    <div id="pageError" style="display:none; margin-top: 15px; padding: 12px; background: #fdecea; color: #b71c1c; border-left: 4px solid #b71c1c; border-radius: 4px; font-size: 14px; word-break: break-word;"></div>
+
+    <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 4px; font-size: 14px;">
+        <p style="margin: 0 0 10px; font-weight: bold;">📝 Test Cards:</p>
+        <ul style="margin: 0; padding-left: 20px;">
+            <li><strong>Success (Verve):</strong> 5061 0000 0000 1234 (PIN: 1234)</li>
+            <li><strong>Success (Mastercard):</strong> 5399 8383 8383 8383 (PIN: 1234)</li>
+            <li><strong>3DS Required (Visa):</strong> 4189 3427 1899 6504 (PIN: 1234)</li>
+            <li><strong>Insufficient Funds:</strong> 5061 0000 0000 5678</li>
+            <li><strong>Invalid PIN:</strong> 5399 8383 8383 8384 (PIN: 1111)</li>
+            <li><strong>Test OTP:</strong> 123456 = Success, 000000 = Failed</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    // API Credentials - Store these securely, ideally from server-side
+    const TEST_API_KEY = 'sk_test_EGP_3744CA97E16A46B8B4FE71DD903F80AB';  // Test key
+    const LIVE_API_KEY = 'sk_live_FTIB_73e4d5f1a45b9c7d';  // Replace with your live key
+
+    // Redirect targets after the modal finishes (were server-injected in the Razor page)
+    const SUCCESS_CALLBACK_URL = '/payment/success';
+    const CANCEL_CALLBACK_URL  = '/payment/cancel';
+    const ERROR_CALLBACK_URL   = '/payment/error';
+    const CLOSE_CALLBACK_URL   = '/payment/close';
+
+    function showPageError(msg) {
+        const box = document.getElementById('pageError');
+        box.textContent = msg;
+        box.style.display = 'block';
+    }
+
+    function initiatePayment() {
+        document.getElementById('pageError').style.display = 'none';
+        // Get form values
+        const reference = document.getElementById('refNumber').value;
+        const amount = document.getElementById('amount').value;
+        const email = document.getElementById('email').value;
+        const tnxType = "VAS";
+        const tnxBearer = document.getElementById('tnxBearer').value.trim();
+        const environment = document.querySelector('input[name="environment"]:checked').value;
+
+        // Validation
+        if (!reference) {
+            alert('Please enter a reference number.');
+            return;
+        }
+
+        if (!amount || amount < 100) {
+            alert('Please enter a valid amount (minimum ₦100).');
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email || !emailRegex.test(email)) {
+            alert('Please enter a valid email address.');
+            return;
+        }
+
+        if (!tnxBearer) {
+            alert('Please paste the token (tnxBearer JWT).');
+            return;
+        }
+
+        // Choose the correct API key based on environment
+        const apiKey = environment === 'test' ? TEST_API_KEY : LIVE_API_KEY;
+
+        // Track payment completion for redirect logic
+        let paymentCompleted = false;
+
+        try {
+            // Initialize the payment SDK
+            const payment = window.inter = new EgolePay({   // window.inter: handy for console debugging
+                // API Key (test or live based on environment)
+                apiKey: apiKey,
+
+                // Transaction Details
+                tnxType: "VAS",//tnxType,
+                tnxBearer: tnxBearer,
+                payload: "eyJFbmNyeXB0ZWRBZXNLZXkiOiJQSm1lUTQ4bll4bEZzL0RmWW15WDJ4NXdHRW13N0l6SEJlOElnaE9DNldyL0hWZXBLUVcrdFF4STJnMytoYlE2VVhwK0UzSzloUTczcmpSWUQxQ253MmI5TGdqY3RDalBHM3RKVUsrSFNTQzhCZ0lkazQ3cElpclZZM0RZUEpWcGd5Ly80RC9xQkd4dHhZK1FqRk9pbmxhVTlFZ2ZGTVhvY1k0aHg3ZHBJWUlSRWc4bTh1WWpLeFpBVCs1VktLbnBuczNzZEMxK2xmK29ydlRacHV6cHRZYkQxZ3ppTWt2L3hmQUVacTFmTmx2azRDdWU2RnozVms4RmtBWHlmeFhXVFpMRUF3TnJaTHZzVHNQeWE2WlF6QjZoVDdXSEoraWNzWFhUQnQwTVllMk8wRVdrQk52TzhLb0NkRGgrRGdHVjUvbGNNVFBxTUx6ZzRBYVNVN2ZoR3c9PSIsIklWIjoiZnptd3RuM08vTTR4enR1TnNaZTcrdz09IiwiRW5jcnlwdGVkRGF0YSI6InB2SnljTUg3bnVZbU1kbEovK2w3R014MFlnb2xURVM4NGk1TzY2NWo5ZDVDcVdCK3dZN1dRZUozOTdmR1dOUDgxWU9qdC9FNW95MnlrZXBzQjdZQjlpd2FNREhZK1VLR09kWWU5U2R1NlMrVkx2V1YwdWdsdWhWdGRWMkxMMFBoQXl5NldCRzRCN3I3THpuODFBWnNmSGo5amt0UVAzZWE4ald0UTFBeGgvWUxpMUxTaG5LSXAyNFNsY3N3U0dyZzBHQlNjMXhXY3pWeUEvTWdTalhPMDRib0Myd3lWa2h6RmE1eUVUS0laRXkwbklIYjFhcXBJODF3TlZRdnlIZ3QzVTk5cU1Va25JZVVaa01sR2tMaitnSHFqOURNRVRNL1AzK2xYRlVwZHBVPSJ9",// encrypted VAS payload (this SDK reads `payload`, not `tnxPayload`)
+                amount: parseFloat(amount),
+                email: email,
+                userID: '19730',
+                reference: reference,  // Your custom reference (this SDK reads `reference`, not `txnRef`)
+                // Optional customer info
+                customerName: email.split('@')[0],
+                phone: '',  // Add phone if available
+
+                // Metadata - any additional data you want to store with the transaction
+                metadata: {
+                    source: 'test_page',
+                    user_id: '12345',
+                    merchant_id: '22C811B4-EF62-48DA-8F35-E714F3992BC4'
+                },
+
+                // UI Configuration (optional)
+                logo: 'https://res.cloudinary.com/dl9m2dzgk/image/upload/v1725615415/MicrosoftTeams-image_7_sjbwtk.png', // EgolePay logo (same as pulsebridge-sdk)
+
+                // ✅ Callbacks
+                onSuccess: function (response) {
+                    console.log('✅ Payment Successful:', response);
+                    paymentCompleted = true;
+
+                    // Redirect to success page with payment details
+                    const redirectUrl = new URL(SUCCESS_CALLBACK_URL, window.location.origin);
+                    redirectUrl.searchParams.append('reference', response.transactionReference);
+                    redirectUrl.searchParams.append('amount', response.amount);
+                    redirectUrl.searchParams.append('status', 'success');
+                    redirectUrl.searchParams.append('paymentReference', response.paymentReference || '');
+                    window.location.href = redirectUrl.toString();
+                },
+
+                onCancel: function (info) {
+                    console.log('❌ Payment Cancelled:', info);
+                    if (!paymentCompleted) {
+                        const redirectUrl = new URL(CANCEL_CALLBACK_URL, window.location.origin);
+                        redirectUrl.searchParams.append('reference', reference);
+                        redirectUrl.searchParams.append('status', 'cancelled');
+                        redirectUrl.searchParams.append('reason', (info && info.reason) || 'USER_CANCELLED');
+                        window.location.href = redirectUrl.toString();
+                    }
+                },
+
+                onError: function (error) {
+                    console.error('❌ Payment Error:', error);
+                    if (error && error.step === 'init') {
+                        // Init failed (bad key / host / token) — stay on the page so the error is visible
+                        showPageError('Payment init failed: ' + (error.message || 'unknown error'));
+                        return;
+                    }
+                    const redirectUrl = new URL(ERROR_CALLBACK_URL, window.location.origin);
+                    redirectUrl.searchParams.append('reference', reference);
+                    redirectUrl.searchParams.append('status', 'error');
+                    redirectUrl.searchParams.append('message', (error && error.message) || 'Payment failed');
+                    window.location.href = redirectUrl.toString();
+                },
+
+                onClose: function (info) {
+                    console.log('🔒 Payment Modal Closed:', info);
+                    if (!paymentCompleted) {
+                        const redirectUrl = new URL(CLOSE_CALLBACK_URL, window.location.origin);
+                        redirectUrl.searchParams.append('reference', reference);
+                        redirectUrl.searchParams.append('status', 'closed');
+                        redirectUrl.searchParams.append('reason', (info && info.reason) || 'USER_CLOSED');
+                        window.location.href = redirectUrl.toString();
+                    }
+                },
+
+                onStepChange: function (step) {
+                    console.log('📝 Payment Step Changed:', step);
+                    // You can log the step or show analytics
+                }
+            });
+
+            console.log('🚀 Payment SDK initialized successfully for environment:', environment);
+        } catch (error) {
+            console.error('❌ Failed to initialize payment:', error);
+            alert('Failed to initialize payment. Please check the console for details.');
+        }
+
+        console.log('Payment SDK initialized successfully');
+    }
+
+    // Optional: Add validation for reference input
+    document.getElementById('refNumber').addEventListener('input', function(e) {
+        if (this.value.length > 50) {
+            this.value = this.value.slice(0, 50);
+        }
+    });
+
+    // Optional: Format amount as user types
+    document.getElementById('amount').addEventListener('blur', function(e) {
+        let value = parseFloat(this.value);
+        if (isNaN(value) || value < 100) {
+            this.value = '2500.00';
+        } else {
+            this.value = value.toFixed(2);
+        }
+    });
+</script>
+
+
+</body>
+</html>

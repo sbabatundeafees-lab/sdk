@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PulseBridge SDK — Test (STAGE)</title>
+    <style>
+        body { font-family: system-ui, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; background: #f5f6f8; }
+        .card { background: #fff; padding: 32px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.08); width: 340px; }
+        h1 { font-size: 18px; margin: 0 0 20px; }
+        .env { display: inline-block; background: #1976d2; color: #fff; font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 4px; margin-left: 8px; vertical-align: middle; }
+        label { display: block; font-size: 13px; margin: 12px 0 4px; color: #555; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
+        button { width: 100%; margin-top: 20px; padding: 12px; border: 0; border-radius: 4px; background: #f60; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+        #status { margin-top: 14px; font-size: 13px; color: #555; min-height: 18px; word-break: break-all; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>PulseBridge <span class="env">STAGE</span></h1>
+
+    <label for="ref">Reference</label>
+    <input type="text" id="ref" value="SCP502026622100159" />
+
+    <label for="type">Type</label>
+    <select id="type">
+        <option value="webguid">webguid</option>
+        <option value="harmonized">harmonized</option>
+    </select>
+
+    <label for="email">Payer email</label>
+    <input type="email" id="email" value="customer@example.com" />
+
+    <button id="paynow">Pay Now</button>
+    <p id="status"></p>
+</div>
+
+<!-- Stage server copy of the PulseBridge SDK. Exposes window.InlineJS.
+     Every endpoint inside it is hardcoded to stage-gatewayservice.egolepay.com. -->
+<script src="pulsebridge-sdk.js"></script>
+
+<script>
+    const API_KEY = "sk_test_EGP_3744CA97E16A46B8B4FE71DD903F80AB";
+
+    const status  = document.getElementById("status");
+    const refEl   = document.getElementById("ref");
+    const typeEl  = document.getElementById("type");
+    const emailEl = document.getElementById("email");
+
+    // The SDK reads ref & type off the URL (?ref=...&type=webguid), so put them
+    // there and reload. It also falls back to txnRef/type passed in the constructor.
+    document.getElementById("paynow").addEventListener("click", () => {
+        const ref = refEl.value.trim();
+        if (!ref) { status.textContent = "Enter a reference."; return; }
+        const url = new URL(window.location.href);
+        url.searchParams.set("ref", ref);
+        url.searchParams.set("type", typeEl.value);
+        url.searchParams.set("email", emailEl.value.trim());
+        window.location.href = url.toString();
+    });
+
+    // If ref & type are already on the URL, start the SDK straight away.
+    window.addEventListener("load", () => {
+        const p = new URL(window.location.href).searchParams;
+        const ref = p.get("ref"), type = p.get("type");
+        if (!ref || !type) return;
+
+        refEl.value = ref; typeEl.value = type;
+        if (p.get("email")) emailEl.value = p.get("email");
+        status.textContent = `Starting payment for ${ref} (${type})…`;
+
+        window.pulse = new InlineJS({
+            apiKey: API_KEY,
+            secretKey: API_KEY,
+            email: emailEl.value,
+            txnRef: ref,
+            type: type,
+            currency: "NGN",
+            description: "LASG-Tax",
+
+            onSuccess:    (res)  => { status.textContent = "Success: " + JSON.stringify(res); console.log("success", res); },
+            onError:      (err)  => { status.textContent = "Error: " + (err && err.message || err); console.error("error", err); },
+            onCancel:     (info) => { status.textContent = "Cancelled at step: " + (info && info.step || ""); console.log("cancel", info); },
+            onClose:      (r)    => { console.log("closed", r); },
+            onStepChange: (s)    => { console.log("step", s); },
+        });
+    });
+</script>
+</body>
+</html>
