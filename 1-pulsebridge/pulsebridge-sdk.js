@@ -834,7 +834,7 @@ class InlineJS {
         this.paymentEndpoint = "https://stage-gatewayservice.egolepay.com/api/PaymentEngine/MakePayment"
         this.vapaymentEndpoint = "https://stage-gatewayservice.egolepay.com/api/PaymentEngine/DynamicAccount"
         this.VerifypaymentEndpoint = "https://stage-gatewayservice.egolepay.com/api/PaymentEngine/Verify"
-        this.billVerificationEndpoint = "https://stage-gatewayservice.egolepay.com/api/PaymentEngine/ValidateReference"
+        this. billVerificationEndpoint = "https://stage-gatewayservice.egolepay.com/api/PaymentEngine/ValidateReference"
         // this.emailEndpoint = "https://stage-gatewayservice.egolepay.com/api/notification/WebPayment"
         this.emailEndpoint = "https://api-test.egolepay.com/api/notification/WebPayment"
         this.otpEndpoint = "https://stage-gatewayservice.egolepay.com/api/PaymentEngine/OTPAuthorization"
