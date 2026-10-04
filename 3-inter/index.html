@@ -53,6 +53,12 @@
     </div>
 
     <div style="margin-bottom: 15px;">
+        <label for="phone" style="display: block; margin-bottom: 5px; font-weight: bold;">Phone:</label>
+        <input type="tel" id="phone" value="08012345678"
+               style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+    </div>
+
+    <div style="margin-bottom: 15px;">
         <label for="tnxBearer" style="display: block; margin-bottom: 5px; font-weight: bold;">Token (tnxBearer JWT) — paste here:</label>
         <textarea id="tnxBearer" rows="4" placeholder="eyJhbGciOi..."
                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 12px;"></textarea>
@@ -172,7 +178,7 @@
                 reference: reference,  // Your custom reference (this SDK reads `reference`, not `txnRef`)
                 // Optional customer info
                 customerName: email.split('@')[0],
-                phone: '',  // Add phone if available
+                phone: document.getElementById('phone').value.trim(),
 
                 // Metadata - any additional data you want to store with the transaction
                 metadata: {

@@ -31,6 +31,9 @@
     <label for="email">Payer email</label>
     <input type="email" id="email" value="customer@example.com" />
 
+    <label for="phone">Payer phone</label>
+    <input type="tel" id="phone" value="08012345678" />
+
     <button id="paynow">Pay Now</button>
     <p id="status"></p>
 </div>
@@ -46,6 +49,7 @@
     const refEl   = document.getElementById("ref");
     const typeEl  = document.getElementById("type");
     const emailEl = document.getElementById("email");
+    const phoneEl = document.getElementById("phone");
 
     // The SDK reads ref & type off the URL (?ref=...&type=webguid), so put them
     // there and reload. It also falls back to txnRef/type passed in the constructor.
@@ -56,6 +60,7 @@
         url.searchParams.set("ref", ref);
         url.searchParams.set("type", typeEl.value);
         url.searchParams.set("email", emailEl.value.trim());
+        url.searchParams.set("phone", phoneEl.value.trim());
         window.location.href = url.toString();
     });
 
@@ -67,12 +72,14 @@
 
         refEl.value = ref; typeEl.value = type;
         if (p.get("email")) emailEl.value = p.get("email");
+        if (p.get("phone")) phoneEl.value = p.get("phone");
         status.textContent = `Starting payment for ${ref} (${type})…`;
 
         window.pulse = new InlineJS({
             apiKey: API_KEY,
             secretKey: API_KEY,
             email: emailEl.value,
+            mobile: phoneEl.value,
             txnRef: ref,
             type: type,
             currency: "NGN",

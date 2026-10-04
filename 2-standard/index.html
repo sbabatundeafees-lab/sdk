@@ -22,6 +22,9 @@
     <label for="email">Email</label>
     <input id="email" type="email" value="customer@example.com" />
 
+    <label for="phone">Phone</label>
+    <input id="phone" type="tel" value="08012345678" />
+
     <label for="amount">Amount (NGN)</label>
     <input id="amount" type="number" value="1000" />
 
@@ -50,8 +53,7 @@
             amount: Number(document.getElementById("amount").value),
             currency: "NGN",
             email: document.getElementById("email").value,
-            phone: "08012345678",
-            mobile: "08012345678",
+            phone: document.getElementById("phone").value.trim(),
             customerName: "Test Customer",
             txnRef: ref,
             reference: ref,

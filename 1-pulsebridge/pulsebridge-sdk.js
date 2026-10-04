@@ -803,7 +803,9 @@ class InlineJS {
         //if (!options.txnRef) {
         //    throw new Error("txnRef is required for initialization");
         //}
-        if (!options.email) {
+        // Guests get blank contact fields on the transfer form; existing customers get them pre-filled.
+        this.isGuest = !!options.isGuest
+        if (!options.email && !this.isGuest) {
             throw new Error("email is required for initialization");
         }
         //if (!options.type || !["webguid", "harmonized"].includes(options.type.toLowerCase())) {
@@ -815,7 +817,7 @@ class InlineJS {
         this.amount = options.amount || 0
         this.cvv = options.cvv || ""
         this.cardholder = options.cardholder || ""
-        this.mobile = options.mobile || ""
+        this.mobile = options.mobile || options.phone || ""
         this.email = options.email || ""
         this.pin = options.pin || ""
         this.product = options.description || ""
@@ -5186,6 +5188,18 @@ class InlineJS {
         <h3 class="egp-title">Bank Transfer</h3>
         <p class="egp-subtitle">Transfer the exact amount to the account below</p>
 
+        <div>
+            <label class="egp-label" for="vemailAlert">Email</label>
+            <input type="email" id="vemailAlert" name="vemailAlert" placeholder="example@email.com" value="${this.isGuest ? "" : this.escapeHtml(this.email)}" autocomplete="email" class="egp-input" style="margin-bottom:4px;">
+            <span id="vemailAlert-error" class="egp-error-text"></span>
+        </div>
+
+        <div>
+            <label class="egp-label" for="vmobile">Phone Number</label>
+            <input type="tel" id="vmobile" name="vmobile" placeholder="+234XXXXXXXXXX or 0XXXXXXXXXX" value="${this.isGuest ? "" : this.escapeHtml(this.mobile)}" autocomplete="tel" class="egp-input" style="margin-bottom:4px;">
+            <span id="vmobile-error" class="egp-error-text"></span>
+        </div>
+
         <div class="egp-warn">Transfer the exact amount shown below</div>
 
         <div class="egp-bank-box">
@@ -5515,6 +5529,13 @@ class InlineJS {
 
             return;
         }
+
+        // Contact fields on the transfer form are required; errors show under each input.
+        if (!this.validateTransferInputs_()) {
+            return;
+        }
+        this.email = document.getElementById("vemailAlert").value.trim()
+        this.mobile = document.getElementById("vmobile").value.trim()
 
         // Validation passed, proceed with payment
         const mobile = this.mobile//document.getElementById("vmobile")?.value

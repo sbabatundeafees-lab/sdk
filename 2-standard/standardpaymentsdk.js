@@ -767,20 +767,25 @@ class EgolePay {
     /* ---- Initialization ---- */
     constructor(options = {}) {
         this.options = options;
+        // Guests get blank contact fields on the transfer details; existing customers get them pre-filled.
+        this.isGuest = options.isGuest === true;
         const labels = {
             apiKey: "apiKey is required (use sk_test_xxx for test or sk_live_xxx for live)",
             amount: "amount is required",
             email: "email is required",
             txnRef: "order / transaction ref is required",
         };
-        for (const field in labels) if (!options[field]) throw new Error(labels[field]);
+        for (const field in labels) {
+            if (field === "email" && this.isGuest) continue;
+            if (!options[field]) throw new Error(labels[field]);
+        }
         this.apiKey = options.apiKey;
         this.isTestMode = String(options.apiKey || "").startsWith("sk_test_");
         this.baseUrl = options.baseUrl || BASE_URL;
         this.amount = options.amount;
         this.currency = options.currency || "NGN";
         this.email = options.email || "";
-        this.phone = options.phone || "";
+        this.phone = options.phone || options.mobile || "";
         this.saveCard = options.saveCard === true;
         this.reference = options.txnRef || this.generateReference("TXN");
         this.metadata = options.metadata || {};
@@ -1313,6 +1318,15 @@ class EgolePay {
             <h3 class="egp-title">Bank Transfer</h3>
             <p class="egp-subtitle">Transfer the exact amount to the account below</p>
 
+            ${extras.length
+            ? ""
+            : `<label class="egp-label" for="verify-email">Email Address</label>
+            <input type="email" id="verify-email" class="egp-input" placeholder="you@example.com"
+                   value="${this.isGuest ? "" : esc(this.email)}" autocomplete="email" required aria-label="Email address">
+            <label class="egp-label" for="verify-phone">Phone Number</label>
+            <input type="tel" id="verify-phone" class="egp-input" placeholder="08012345678"
+                   value="${this.isGuest ? "" : esc(this.phone)}" autocomplete="tel" required aria-label="Phone number">`}
+
             <div class="egp-warn">Transfer the exact amount shown below</div>
 
             <div class="egp-bank-box">
@@ -1350,11 +1364,7 @@ class EgolePay {
             : ""}
             </div>
 
-            ${extras.length
-            ? this._extraFieldsMarkup(extras)
-            : `<label class="egp-label" for="verify-email">Email for receipt</label>
-            <input type="email" id="verify-email" class="egp-input" value="${esc(this.email)}"
-                   autocomplete="email" required aria-label="Email for receipt">`}
+            ${extras.length ? this._extraFieldsMarkup(extras) : ""}
 
             <button class="egp-btn egp-btn-primary" type="button" id="verify-transfer">I Have Paid</button>
 
@@ -1382,9 +1392,13 @@ class EgolePay {
                 t = values.email || this.email;
             }
             else {
-                t = document.getElementById("verify-email").value;
-                if (!t || !t.includes("@"))
-                    return void this.showErrorModal("Please enter a valid email");
+                t = document.getElementById("verify-email").value.trim();
+                const phone = document.getElementById("verify-phone").value.trim();
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t))
+                    return void this.showErrorModal("Please enter a valid email address");
+                if (!/^\+?\d{7,15}$/.test(phone.replace(/[\s-]/g, "")))
+                    return void this.showErrorModal("Please enter a valid phone number");
+                (this.email = t, this.phone = phone);
             }
             (this.removePopup("payment-popup"),
                 this.removePopup("payment-overlay"),
